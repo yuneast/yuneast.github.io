@@ -9,16 +9,16 @@ tags: [celery, redis, python, django, async, performance]
 
 ## 배경
 
-콘디(인플루언서 중개 플랫폼)에서는 광고주가 블로거를 선택할 때 "블로거 지수"를 참고한다. 블로거 지수는 블로그의 일 방문자 수, 포스팅 빈도, 댓글 수, 이웃 수 등을 종합해서 산출하는 점수다.
+콘디(인플루언서 중개 플랫폼)에서는 광고주가 블로거를 선택할 때 "블로거 지수"를 참고한다. 블로거 지수는 블로그의 최근 게시글에서 키워드를 추출하고, 해당 키워드로 네이버 검색 시 상위에 노출되는지를 기반으로 산출하는 점수다.
 
 ### 분석 과정
 
 1. 블로그 URL로 최근 게시글 30개 크롤링
-2. 각 게시글의 조회수, 댓글 수, 좋아요 수 수집
-3. 블로그 전체 통계 (일 방문자 수, 이웃 수) 수집
-4. 지표별 가중치 적용해서 종합 점수 산출
+2. 각 게시글에서 키워드 추출
+3. 추출된 키워드로 네이버 검색 → 해당 게시글이 상위에 노출되는지 확인
+4. 검색 순위별 가중치 적용해서 종합 점수 산출
 
-하나의 블로거를 분석하는 데 약 5초가 걸렸다. 크롤링 대기 시간이 대부분이다.
+하나의 블로거를 분석하는 데 약 5초가 걸렸다. 게시글 크롤링과 키워드별 네이버 검색 대기 시간이 대부분이다.
 
 ## 문제 발생
 
@@ -148,11 +148,17 @@ class BloggerAnalyzer:
         if cached:
             return cached
 
-        # 크롤링 + 분석 (5초 소요)
+        # 1. 최근 게시글 30개 크롤링
         posts = BlogCrawler.crawl_recent_posts(blog_url, count=30)
-        stats = BlogCrawler.get_blog_stats(blog_url)
 
-        score = ScoreCalculator.calculate(posts, stats)
+        # 2. 각 게시글에서 키워드 추출
+        keywords_map = KeywordExtractor.extract_from_posts(posts)
+
+        # 3. 키워드로 네이버 검색 → 상위 노출 여부 확인
+        rankings = NaverSearcher.check_rankings(keywords_map)
+
+        # 4. 검색 순위별 가중치 적용해서 종합 점수 산출
+        score = ScoreCalculator.calculate(rankings)
 
         cache.set(cache_key, score, timeout=3600)
         return score
