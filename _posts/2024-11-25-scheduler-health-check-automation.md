@@ -5,18 +5,13 @@ categories: [devops]
 tags: [scheduler, monitoring, cloudwatch, automation, alerting]
 ---
 
-청구서 발행 크론잡이 죽었는데 아무도 몰랐다. 사용자 문의가 폭주하고 나서야 알게 됐다. 이 글에서는 크론잡 헬스체크를 자동화해서 장애를 즉시 감지하는 시스템을 구축한 과정을 정리한다.
+크론 서버가 죽었는데 아무도 몰랐다. 청구서 발행이 안 돼서 사용자 문의가 폭주하고 나서야 알게 됐다. 이 글에서는 크론잡 헬스체크를 자동화해서 장애를 즉시 감지하는 시스템을 구축한 과정을 정리한다.
 
 ## 문제 발생
 
-학원 ERP 서비스에서 여러 배치 작업을 크론으로 실행하고 있었다:
+학원 ERP 레거시 PHP 서비스에서 5-60개의 크론잡이 돌고 있었다:
 
-- 매일 오전 9시: 출결 알림 발송
-- 매달 1일 오전 10시: 청구서 발행 및 발송
-- 매일 오후 2시: 통계 데이터 집계
-- 매일 오후 11시: 백업 작업
-
-어느 달 1일, 청구서 발행 크론잡이 죽었다. 오전 10시에 실행돼야 할 청구서가 발행되지 않았고, 학부모들에게 문의 전화가 폭주했다.
+어느 날, 크론 서버가 죽었다. 5-60개의 크론잡이 모두 멈췄고, 특히 청구서 발행이 안 돼서 학부모들에게 문의 전화가 폭주했다.
 
 ```bash
 # CloudWatch Logs Insights 쿼리로 로그 확인
@@ -56,72 +51,89 @@ CloudWatch Logs에 모든 로그를 넣고 쿼리로 확인하고 있었지만, 
 
 ### 1. 크론잡 실행 시 DB에 작업 내역 INSERT
 
-크론잡이 실행될 때마다 DB에 실행 기록을 남긴다.
+레거시 PHP 크론잡이 실행될 때마다 DB에 실행 기록을 남긴다.
 
-```python
-# cron_jobs/invoice_generator.py
-import datetime
-from app.models import CronJobLog
-from app.database import db
+```php
+<?php
+// cron_jobs/invoice_generator.php
+require_once __DIR__ . '/config/database.php';
 
-def generate_invoices():
-    task_name = "invoice_generation"
-    start_time = datetime.datetime.now()
+function generate_invoices() {
+    global $db;
+    $task_name = "invoice_generation";
+    $start_time = date('Y-m-d H:i:s');
 
-    try:
-        # 크론잡 시작 로그 INSERT
-        log = CronJobLog(
-            task_name=task_name,
-            status="RUNNING",
-            started_at=start_time
-        )
-        db.session.add(log)
-        db.session.commit()
+    try {
+        // 크론잡 시작 로그 INSERT
+        $stmt = $db->prepare("
+            INSERT INTO cron_job_logs (task_name, status, started_at)
+            VALUES (?, 'RUNNING', ?)
+        ");
+        $stmt->execute([$task_name, $start_time]);
+        $log_id = $db->lastInsertId();
 
-        # 청구서 발행 로직
-        invoices = create_monthly_invoices()
-        send_invoice_emails(invoices)
+        // 청구서 발행 로직
+        $invoices = create_monthly_invoices();
+        send_invoice_emails($invoices);
 
-        # 성공 로그 업데이트
-        log.status = "SUCCESS"
-        log.completed_at = datetime.datetime.now()
-        log.message = f"{len(invoices)}건 청구서 발행 완료"
-        db.session.commit()
+        // 성공 로그 업데이트
+        $stmt = $db->prepare("
+            UPDATE cron_job_logs
+            SET status = 'SUCCESS',
+                completed_at = ?,
+                message = ?
+            WHERE id = ?
+        ");
+        $message = count($invoices) . "건 청구서 발행 완료";
+        $stmt->execute([date('Y-m-d H:i:s'), $message, $log_id]);
 
-    except Exception as e:
-        # 실패 로그 업데이트
-        log.status = "FAILED"
-        log.completed_at = datetime.datetime.now()
-        log.error_message = str(e)
-        db.session.commit()
-        raise
+    } catch (Exception $e) {
+        // 실패 로그 업데이트
+        $stmt = $db->prepare("
+            UPDATE cron_job_logs
+            SET status = 'FAILED',
+                completed_at = ?,
+                error_message = ?
+            WHERE id = ?
+        ");
+        $stmt->execute([date('Y-m-d H:i:s'), $e->getMessage(), $log_id]);
+        throw $e;
+    }
+}
 
-if __name__ == "__main__":
-    generate_invoices()
+generate_invoices();
 ```
 
 ### 2. CloudWatch Logs에 로그 전송
 
-애플리케이션 로그를 CloudWatch Logs로 전송한다.
+PHP 애플리케이션 로그를 CloudWatch Logs로 전송한다.
 
-```python
-# logging_config.py
-import watchtower
-import logging
+```php
+<?php
+// logging_config.php
+require_once __DIR__ . '/vendor/autoload.php';
 
-logger = logging.getLogger('cron_jobs')
-logger.setLevel(logging.INFO)
+use Aws\CloudWatchLogs\CloudWatchLogsClient;
 
-# CloudWatch Logs Handler
-cloudwatch_handler = watchtower.CloudWatchLogHandler(
-    log_group='/aws/cron/scheduler',
-    stream_name='invoice_generation'
-)
-logger.addHandler(cloudwatch_handler)
+function log_to_cloudwatch($message, $level = 'INFO') {
+    $client = new CloudWatchLogsClient([
+        'version' => 'latest',
+        'region' => 'ap-northeast-2'
+    ]);
 
-# 사용
-logger.info("[START] 청구서 발행 작업 시작")
-logger.info(f"[SUCCESS] {count}건 청구서 발행 완료")
+    $client->putLogEvents([
+        'logGroupName' => '/aws/cron/scheduler',
+        'logStreamName' => 'invoice_generation',
+        'logEvents' => [[
+            'message' => "[$level] $message",
+            'timestamp' => time() * 1000
+        ]]
+    ]);
+}
+
+// 사용
+log_to_cloudwatch("[START] 청구서 발행 작업 시작");
+log_to_cloudwatch("[SUCCESS] {$count}건 청구서 발행 완료");
 ```
 
 ### 3. PM2로 모니터링 스크립트 실행
