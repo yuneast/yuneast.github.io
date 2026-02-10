@@ -269,7 +269,7 @@ https://blog.cleancoder.com/uncle-bob/2014/05/08/SingleReponsibilityPrinciple.ht
 
 **해결:**
 - 오전 10시, 오후 4시 두 번 리뷰 타임 고정
-- 긴급한 PR은 슬랙으로 멘션
+- 긴급한 PR은 사내메신저로 멘션
 
 ### 3. "왜"를 설명 안 했을 때
 

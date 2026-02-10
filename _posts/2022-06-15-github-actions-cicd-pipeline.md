@@ -29,7 +29,7 @@ tags: [github-actions, cicd, docker, deployment, automation]
 
 - PR 머지 시 자동 테스트 실행
 - 테스트 통과 시 자동 배포
-- 실패 시 슬랙 알림
+- 실패 시 사내메신저 알림
 - 롤백 자동화
 
 ## GitHub Actions 워크플로우 구성

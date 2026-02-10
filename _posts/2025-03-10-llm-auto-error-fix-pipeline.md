@@ -5,7 +5,7 @@ categories: [backend]
 tags: [llm, automation, php, error-handling, devops]
 ---
 
-"PHP Fatal Error 발생 → 슬랙 알림 확인 → 코드 확인 → 원인 분석 → 수정 → PR 생성 → 코드 리뷰 → 배포". 이 흐름을 자동화하면 어떨까? 이 글에서는 PHP Fatal Error 발생 시 LLM이 자동으로 오류를 분석하고 수정한 뒤 PR을 생성하는 파이프라인을 구축한 경험을 공유한다.
+"PHP Fatal Error 발생 → 사내메신저 알림 확인 → 코드 확인 → 원인 분석 → 수정 → PR 생성 → 코드 리뷰 → 배포". 이 흐름을 자동화하면 어떨까? 이 글에서는 PHP Fatal Error 발생 시 LLM이 자동으로 오류를 분석하고 수정한 뒤 PR을 생성하는 파이프라인을 구축한 경험을 공유한다.
 
 ## 문제 인식
 
