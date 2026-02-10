@@ -1,8 +1,8 @@
 # Site Settings
 title: "Yuneast Dev Blog"
-subtitle: "백엔드 개발 기술 블로그"
+subtitle: "개발자의 삽질 일지"
 name: "윤동준"
-description: "백엔드 개발자 윤동준의 기술 블로그. Java, Spring Boot, Python, Redis 등 실무 경험과 문제 해결 과정을 공유합니다."
+description: "11년차 백엔드 개발자의 실무 경험과 문제 해결 과정. 삽질하면서 배운 것들을 기록합니다."
 url: "https://yuneast.github.io"
 baseurl: ""
 
