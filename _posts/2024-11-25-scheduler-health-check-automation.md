@@ -148,55 +148,46 @@ import requests
 from app.models import CronJobLog
 from app.database import db
 
-SLACK_WEBHOOK_URL = "https://hooks.slack.com/services/xxxx"
+MESSENGER_WEBHOOK_URL = "https://hooks.slack.com/services/xxxx"
+TIMEOUT_MINUTES = 3
 
-def check_cron_jobs():
-    """최근 크론잡 상태 체크"""
-    now = datetime.datetime.now()
-
-    # 청구서 발행: 매달 1일 10시 실행 예정
-    if now.day == 1 and now.hour >= 10:
-        check_task("invoice_generation", timeout_minutes=30)
-
-    # 출결 알림: 매일 9시 실행 예정
-    if now.hour >= 9:
-        check_task("attendance_notification", timeout_minutes=10)
-
-def check_task(task_name: str, timeout_minutes: int):
-    """특정 작업의 타임아웃 체크"""
-    # 최근 실행 로그 조회
-    latest_log = CronJobLog.query.filter_by(
-        task_name=task_name
-    ).order_by(CronJobLog.started_at.desc()).first()
+def check_cron_server():
+    """크론 서버 상태 체크"""
+    # 가장 최근 실행된 크론잡 로그 조회
+    latest_log = CronJobLog.query.order_by(
+        CronJobLog.started_at.desc()
+    ).first()
 
     if not latest_log:
-        send_alert(f"⚠️ {task_name} 실행 기록 없음")
+        send_alert("⚠️ 크론잡 실행 기록이 없습니다")
         return
 
-    # 타임아웃 체크
+    # RUNNING 상태로 3분 이상 지속 시 서버 죽음으로 판단
     if latest_log.status == "RUNNING":
         elapsed = (datetime.datetime.now() - latest_log.started_at).seconds / 60
-        if elapsed > timeout_minutes:
+        if elapsed > TIMEOUT_MINUTES:
             send_alert(
-                f"⚠️ {task_name} 타임아웃\n"
+                f"🚨 크론 서버 다운 감지\n"
+                f"작업: {latest_log.task_name}\n"
                 f"시작: {latest_log.started_at}\n"
                 f"경과: {elapsed:.1f}분"
             )
 
-    # 실패 체크
+    # FAILED 상태 체크
     elif latest_log.status == "FAILED":
         send_alert(
-            f"❌ {task_name} 실패\n"
+            f"❌ 크론잡 실패\n"
+            f"작업: {latest_log.task_name}\n"
             f"에러: {latest_log.error_message}"
         )
 
 def send_alert(message: str):
-    """사내 메신저 알림 발송"""
-    requests.post(SLACK_WEBHOOK_URL, json={"text": message})
+    """사내메신저 알림 발송"""
+    requests.post(MESSENGER_WEBHOOK_URL, json={"text": message})
 
 if __name__ == "__main__":
     while True:
-        check_cron_jobs()
+        check_cron_server()
         time.sleep(60)  # 1분마다 체크
 ```
 
