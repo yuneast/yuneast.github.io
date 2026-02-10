@@ -1,0 +1,72 @@
+# Site Settings
+title: "Yuneast Dev Blog"
+subtitle: "백엔드 개발 기술 블로그"
+name: "윤동준"
+description: "백엔드 개발자 윤동준의 기술 블로그. Java, Spring Boot, Python, Redis 등 실무 경험과 문제 해결 과정을 공유합니다."
+url: "https://yuneast.github.io"
+baseurl: ""
+
+# Theme
+remote_theme: "mmistakes/minimal-mistakes@4.26.2"
+minimal_mistakes_skin: "dark"
+
+# Site Author
+author:
+  name: "윤동준"
+  bio: "백엔드 개발자"
+  location: "Seoul, Korea"
+  email: "ydj0617@gmail.com"
+  links:
+    - label: "GitHub"
+      icon: "fab fa-fw fa-github"
+      url: "https://github.com/yuneast"
+    - label: "Email"
+      icon: "fas fa-fw fa-envelope-square"
+      url: "mailto:ydj0617@gmail.com"
+
+# Reading Files
+include:
+  - _pages
+
+# Outputting
+permalink: /:categories/:title/
+paginate: 10
+paginate_path: /page:num/
+timezone: Asia/Seoul
+
+# Plugins
+plugins:
+  - jekyll-paginate
+  - jekyll-sitemap
+  - jekyll-gist
+  - jekyll-feed
+  - jekyll-include-cache
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: single
+      author_profile: true
+      read_time: true
+      comments: true
+      share: true
+      related: true
+      toc: true
+      toc_sticky: true
+  - scope:
+      path: "_pages"
+      type: pages
+    values:
+      layout: single
+      author_profile: true
+
+# Categories
+category_archive:
+  type: liquid
+  path: /categories/
+tag_archive:
+  type: liquid
+  path: /tags/
