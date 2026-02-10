@@ -15,7 +15,7 @@ toc_sticky: true
 
 ## 윤동준 (Dongjun Yun)
 
-9년차 백엔드 개발자. 문제를 발견하고, 분석하고, 해결합니다.
+11년차 백엔드 개발자. 문제를 발견하고, 분석하고, 해결합니다.
 
 - Email: ydj0617@gmail.com
 - GitHub: [github.com/yuneast](https://github.com/yuneast)
@@ -147,7 +147,7 @@ toc_sticky: true
 
 ### 뉴소프트
 
-**프리랜서 풀스택 개발** (2015.01 ~ 2018.03)
+**프리랜서 풀스택 개발** (2015.08 ~ 2018.03)
 
 - Python 기반 부동산 전월세 신고 자동화 서비스 개발
 - PHP Laravel 기반 가상화폐 선물 거래소 백엔드 개발
