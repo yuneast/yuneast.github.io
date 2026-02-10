@@ -5,30 +5,32 @@ categories: [devops]
 tags: [scheduler, monitoring, cloudwatch, automation, alerting]
 ---
 
-오전 10시에 실행돼야 할 배치 작업이 멈췄다. 오후 2시에 사용자가 "데이터가 안 들어왔어요"라고 문의해서 알게 됐다. 4시간 동안 아무도 몰랐다. 이 글에서는 크론 서버 헬스체크를 자동화해서 장애를 즉시 감지하는 시스템을 구축한 과정을 정리한다.
+청구서 발행 크론잡이 죽었는데 아무도 몰랐다. 사용자 문의가 폭주하고 나서야 알게 됐다. 이 글에서는 크론잡 헬스체크를 자동화해서 장애를 즉시 감지하는 시스템을 구축한 과정을 정리한다.
 
 ## 문제 발생
 
 학원 ERP 서비스에서 여러 배치 작업을 크론으로 실행하고 있었다:
 
 - 매일 오전 9시: 출결 알림 발송
-- 매일 오전 10시: 수강료 납부 알림 발송
+- 매달 1일 오전 10시: 청구서 발행 및 발송
 - 매일 오후 2시: 통계 데이터 집계
 - 매일 오후 11시: 백업 작업
 
-어느 날 오전 10시 수강료 알림이 발송되지 않았다. 사용자가 "알림이 안 왔어요"라고 문의해서 확인해보니 크론 서버가 4시간 전부터 멈춰있었다.
+어느 달 1일, 청구서 발행 크론잡이 죽었다. 오전 10시에 실행돼야 할 청구서가 발행되지 않았고, 학부모들에게 문의 전화가 폭주했다.
 
 ```bash
-# 크론 서버 로그 확인
-$ tail -f /var/log/cron.log
+# CloudWatch Logs Insights 쿼리로 로그 확인
+fields @timestamp, @message
+| filter @message like /청구서 발행/
+| sort @timestamp desc
+| limit 20
 
-[2024-11-10 10:00:01] 수강료 알림 작업 시작
-[2024-11-10 10:00:03] DB 커넥션 획득
-[2024-11-10 10:00:05] 알림 대상자 조회 중...
-# 여기서 멈춤 (이후 로그 없음)
+# 결과: 크론잡 시작 로그는 있는데 종료 로그가 없음
+[2024-11-01 10:00:01] 청구서 발행 작업 시작
+# 이후 로그 없음
 ```
 
-원인: DB 쿼리가 무한 대기 상태로 빠졌고, 타임아웃 설정이 없어서 프로세스가 영원히 끝나지 않았다.
+CloudWatch Logs에 모든 로그를 넣고 쿼리로 확인하고 있었지만, 능동적으로 모니터링하지 않아서 문제를 놓쳤다.
 
 ## 기존 모니터링의 한계
 
@@ -41,251 +43,244 @@ $ tail -f /var/log/cron.log
 
 ## 해결 방향
 
-크론 작업이 정해진 시간 내에 완료되지 않으면 자동으로 알림을 보내는 시스템이 필요했다.
+크론잡이 정상 실행됐는지 자동으로 모니터링하고, 문제 발생 시 즉시 알림을 보내는 시스템이 필요했다.
 
 ### 설계 원칙
 
-1. **크론 작업마다 실행 시작/종료 로그 기록**
-2. **CloudWatch에서 로그 패턴 모니터링**
-3. **타임아웃 시간 초과 시 알람 발생**
-4. **사내 메신저로 즉시 알림**
+1. **크론잡 실행마다 DB에 작업 내역 INSERT**
+2. **CloudWatch Logs에 모든 로그 적재, 쿼리로 확인 가능**
+3. **PM2로 모니터링 스크립트 실행**
+4. **타임아웃 시 사내메신저 자동 알림**
 
 ## 구현
 
-### 1. 크론 작업 래퍼 스크립트
+### 1. 크론잡 실행 시 DB에 작업 내역 INSERT
 
-모든 크론 작업을 래퍼 스크립트로 감싸서 시작/종료 로그를 CloudWatch에 기록한다.
-
-```bash
-#!/bin/bash
-# cron_wrapper.sh
-
-TASK_NAME=$1
-TIMEOUT=$2
-COMMAND=$3
-
-LOG_GROUP="/aws/cron/scheduler"
-LOG_STREAM="$TASK_NAME"
-
-# 시작 로그
-aws logs put-log-events \
-  --log-group-name "$LOG_GROUP" \
-  --log-stream-name "$LOG_STREAM" \
-  --log-events timestamp=$(date +%s)000,message="[START] $TASK_NAME 시작"
-
-# 타임아웃과 함께 작업 실행
-timeout $TIMEOUT bash -c "$COMMAND"
-EXIT_CODE=$?
-
-if [ $EXIT_CODE -eq 124 ]; then
-  # 타임아웃 발생
-  aws logs put-log-events \
-    --log-group-name "$LOG_GROUP" \
-    --log-stream-name "$LOG_STREAM" \
-    --log-events timestamp=$(date +%s)000,message="[TIMEOUT] $TASK_NAME 타임아웃 ($TIMEOUT초 초과)"
-  exit 1
-elif [ $EXIT_CODE -ne 0 ]; then
-  # 에러 발생
-  aws logs put-log-events \
-    --log-group-name "$LOG_GROUP" \
-    --log-stream-name "$LOG_STREAM" \
-    --log-events timestamp=$(date +%s)000,message="[ERROR] $TASK_NAME 실패 (exit code: $EXIT_CODE)"
-  exit 1
-else
-  # 정상 종료
-  aws logs put-log-events \
-    --log-group-name "$LOG_GROUP" \
-    --log-stream-name "$LOG_STREAM" \
-    --log-events timestamp=$(date +%s)000,message="[SUCCESS] $TASK_NAME 완료"
-fi
-```
-
-### 2. 크론탭 수정
-
-기존 크론탭을 래퍼 스크립트를 사용하도록 변경했다.
-
-```bash
-# 기존 크론탭
-0 10 * * * python /app/send_payment_notification.py
-
-# 변경 후 (타임아웃 5분)
-0 10 * * * /app/cron_wrapper.sh "payment_notification" 300 "python /app/send_payment_notification.py"
-```
-
-### 3. CloudWatch 메트릭 필터
-
-CloudWatch에서 `[TIMEOUT]`과 `[ERROR]` 패턴을 감지하는 메트릭 필터를 생성했다.
-
-```json
-{
-  "filterName": "CronTimeoutFilter",
-  "filterPattern": "[TIMEOUT]",
-  "metricTransformations": [
-    {
-      "metricName": "CronTimeout",
-      "metricNamespace": "Scheduler",
-      "metricValue": "1"
-    }
-  ]
-}
-```
-
-```json
-{
-  "filterName": "CronErrorFilter",
-  "filterPattern": "[ERROR]",
-  "metricTransformations": [
-    {
-      "metricName": "CronError",
-      "metricNamespace": "Scheduler",
-      "metricValue": "1"
-    }
-  ]
-}
-```
-
-### 4. CloudWatch 알람
-
-메트릭이 1 이상이면 알람을 발생시킨다.
-
-```json
-{
-  "AlarmName": "CronSchedulerFailure",
-  "MetricName": "CronTimeout",
-  "Namespace": "Scheduler",
-  "Statistic": "Sum",
-  "Period": 60,
-  "EvaluationPeriods": 1,
-  "Threshold": 1,
-  "ComparisonOperator": "GreaterThanOrEqualToThreshold",
-  "AlarmActions": [
-    "arn:aws:sns:ap-northeast-2:xxxx:scheduler-alert"
-  ]
-}
-```
-
-### 5. SNS → Lambda → 사내 메신저
-
-SNS 알람이 발생하면 Lambda가 사내 메신저로 알림을 전송한다.
+크론잡이 실행될 때마다 DB에 실행 기록을 남긴다.
 
 ```python
-import json
-import urllib.request
+# cron_jobs/invoice_generator.py
+import datetime
+from app.models import CronJobLog
+from app.database import db
 
-def lambda_handler(event, context):
-    message = event['Records'][0]['Sns']['Message']
-    alarm_data = json.loads(message)
+def generate_invoices():
+    task_name = "invoice_generation"
+    start_time = datetime.datetime.now()
 
-    task_name = alarm_data.get('Trigger', {}).get('Dimensions', [{}])[0].get('value', 'Unknown')
+    try:
+        # 크론잡 시작 로그 INSERT
+        log = CronJobLog(
+            task_name=task_name,
+            status="RUNNING",
+            started_at=start_time
+        )
+        db.session.add(log)
+        db.session.commit()
 
-    # 사내 메신저 웹훅
-    webhook_url = "https://messenger.company.com/webhook/xxxx"
+        # 청구서 발행 로직
+        invoices = create_monthly_invoices()
+        send_invoice_emails(invoices)
 
-    payload = {
-        "text": f"⚠️ 크론 작업 장애 발생\n작업명: {task_name}\n상태: 타임아웃 또는 에러\n시간: {alarm_data['StateChangeTime']}"
-    }
+        # 성공 로그 업데이트
+        log.status = "SUCCESS"
+        log.completed_at = datetime.datetime.now()
+        log.message = f"{len(invoices)}건 청구서 발행 완료"
+        db.session.commit()
 
-    req = urllib.request.Request(
-        webhook_url,
-        data=json.dumps(payload).encode('utf-8'),
-        headers={'Content-Type': 'application/json'}
-    )
+    except Exception as e:
+        # 실패 로그 업데이트
+        log.status = "FAILED"
+        log.completed_at = datetime.datetime.now()
+        log.error_message = str(e)
+        db.session.commit()
+        raise
 
-    urllib.request.urlopen(req)
-
-    return {'statusCode': 200}
+if __name__ == "__main__":
+    generate_invoices()
 ```
 
-## 개선: 작업별 타임아웃 설정
+### 2. CloudWatch Logs에 로그 전송
 
-작업마다 예상 실행 시간이 다르다. 출결 알림은 1분이면 끝나지만, 통계 집계는 10분이 걸린다. 작업별로 타임아웃을 다르게 설정했다.
+애플리케이션 로그를 CloudWatch Logs로 전송한다.
 
-```bash
-# crontab
-0 9 * * * /app/cron_wrapper.sh "attendance_notification" 120 "python /app/send_attendance_notification.py"
-0 10 * * * /app/cron_wrapper.sh "payment_notification" 300 "python /app/send_payment_notification.py"
-0 14 * * * /app/cron_wrapper.sh "stats_aggregation" 600 "python /app/aggregate_stats.py"
-0 23 * * * /app/cron_wrapper.sh "backup" 1800 "bash /app/backup.sh"
+```python
+# logging_config.py
+import watchtower
+import logging
+
+logger = logging.getLogger('cron_jobs')
+logger.setLevel(logging.INFO)
+
+# CloudWatch Logs Handler
+cloudwatch_handler = watchtower.CloudWatchLogHandler(
+    log_group='/aws/cron/scheduler',
+    stream_name='invoice_generation'
+)
+logger.addHandler(cloudwatch_handler)
+
+# 사용
+logger.info("[START] 청구서 발행 작업 시작")
+logger.info(f"[SUCCESS] {count}건 청구서 발행 완료")
 ```
 
-## 실패 재시도 로직 추가
+### 3. PM2로 모니터링 스크립트 실행
 
-일시적 네트워크 오류로 작업이 실패할 수 있다. 3번까지 재시도하도록 래퍼 스크립트를 개선했다.
+DB의 크론잡 로그를 주기적으로 체크하는 모니터링 스크립트를 PM2로 실행한다.
+
+```python
+# monitor_cron_jobs.py
+import time
+import datetime
+import requests
+from app.models import CronJobLog
+from app.database import db
+
+SLACK_WEBHOOK_URL = "https://hooks.slack.com/services/xxxx"
+
+def check_cron_jobs():
+    """최근 크론잡 상태 체크"""
+    now = datetime.datetime.now()
+
+    # 청구서 발행: 매달 1일 10시 실행 예정
+    if now.day == 1 and now.hour >= 10:
+        check_task("invoice_generation", timeout_minutes=30)
+
+    # 출결 알림: 매일 9시 실행 예정
+    if now.hour >= 9:
+        check_task("attendance_notification", timeout_minutes=10)
+
+def check_task(task_name: str, timeout_minutes: int):
+    """특정 작업의 타임아웃 체크"""
+    # 최근 실행 로그 조회
+    latest_log = CronJobLog.query.filter_by(
+        task_name=task_name
+    ).order_by(CronJobLog.started_at.desc()).first()
+
+    if not latest_log:
+        send_alert(f"⚠️ {task_name} 실행 기록 없음")
+        return
+
+    # 타임아웃 체크
+    if latest_log.status == "RUNNING":
+        elapsed = (datetime.datetime.now() - latest_log.started_at).seconds / 60
+        if elapsed > timeout_minutes:
+            send_alert(
+                f"⚠️ {task_name} 타임아웃\n"
+                f"시작: {latest_log.started_at}\n"
+                f"경과: {elapsed:.1f}분"
+            )
+
+    # 실패 체크
+    elif latest_log.status == "FAILED":
+        send_alert(
+            f"❌ {task_name} 실패\n"
+            f"에러: {latest_log.error_message}"
+        )
+
+def send_alert(message: str):
+    """사내 메신저 알림 발송"""
+    requests.post(SLACK_WEBHOOK_URL, json={"text": message})
+
+if __name__ == "__main__":
+    while True:
+        check_cron_jobs()
+        time.sleep(60)  # 1분마다 체크
+```
+
+### 4. PM2로 모니터링 스크립트 실행
 
 ```bash
-#!/bin/bash
-# cron_wrapper.sh (개선)
+# PM2로 모니터링 스크립트 실행
+pm2 start monitor_cron_jobs.py --name cron-monitor
 
-TASK_NAME=$1
-TIMEOUT=$2
-COMMAND=$3
-MAX_RETRIES=3
+# PM2 상태 확인
+pm2 list
 
-for i in $(seq 1 $MAX_RETRIES); do
-  timeout $TIMEOUT bash -c "$COMMAND"
-  EXIT_CODE=$?
+# PM2 로그 확인
+pm2 logs cron-monitor
+```
 
-  if [ $EXIT_CODE -eq 0 ]; then
-    # 성공
-    aws logs put-log-events \
-      --log-group-name "$LOG_GROUP" \
-      --log-stream-name "$LOG_STREAM" \
-      --log-events timestamp=$(date +%s)000,message="[SUCCESS] $TASK_NAME 완료 (시도 $i/$MAX_RETRIES)"
-    exit 0
-  fi
+PM2는 프로세스가 죽으면 자동 재시작하므로, 모니터링 스크립트 자체의 안정성도 확보된다.
 
-  # 실패 시 다음 재시도까지 10초 대기
-  if [ $i -lt $MAX_RETRIES ]; then
-    sleep 10
-  fi
-done
+### 5. CloudWatch Logs Insights로 로그 분석
 
-# 모든 재시도 실패
-aws logs put-log-events \
-  --log-group-name "$LOG_GROUP" \
-  --log-stream-name "$LOG_STREAM" \
-  --log-events timestamp=$(date +%s)000,message="[ERROR] $TASK_NAME 실패 (재시도 $MAX_RETRIES회 모두 실패)"
-exit 1
+CloudWatch Logs에 쌓인 로그를 쿼리로 분석한다.
+
+```
+-- 최근 1시간 동안 FAILED 로그 조회
+fields @timestamp, @message
+| filter @message like /FAILED/
+| sort @timestamp desc
+| limit 20
+
+-- 특정 크론잡의 실행 기록 조회
+fields @timestamp, @message
+| filter @message like /invoice_generation/
+| sort @timestamp desc
+| limit 50
+
+-- 타임아웃 발생 건수
+fields @timestamp
+| filter @message like /타임아웃/
+| stats count() by bin(5m)
+```
+
+## DB 스키마
+
+크론잡 실행 내역을 저장하는 테이블 구조:
+
+```sql
+CREATE TABLE cron_job_logs (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    task_name VARCHAR(100) NOT NULL,
+    status VARCHAR(20) NOT NULL,  -- RUNNING, SUCCESS, FAILED
+    started_at DATETIME NOT NULL,
+    completed_at DATETIME,
+    message VARCHAR(500),
+    error_message TEXT,
+    INDEX idx_task_started (task_name, started_at DESC)
+);
 ```
 
 ## 결과
 
 | 항목 | Before | After |
 |------|--------|-------|
-| 장애 감지 시간 | 사용자 문의 시 (평균 2~4시간) | 즉시 (1분 이내) |
+| 장애 감지 시간 | 사용자 문의 폭주 후 (수시간) | PM2 모니터링으로 즉시 (1분 이내) |
 | 장애 대응 시간 | 평균 4시간 | 평균 2시간 |
 | 장애 대응 시간 단축 | - | 50% |
-| 모니터링 | 없음 | CloudWatch 실시간 모니터링 |
+| 모니터링 | 없음 | DB 로그 + CloudWatch Logs + PM2 |
 
 3개월간 모니터링 결과:
-- 타임아웃 알람 5건 발생 (모두 즉시 감지)
-- 재시도로 복구된 케이스 3건
-- 수동 개입이 필요한 케이스 2건
+- 타임아웃 알람 4건 발생 (모두 즉시 감지)
+- 사내메신저로 자동 알림 발송
+- 사용자 문의 폭주 사례 0건
 
 **장애 대응 시간이 50% 단축된 이유:**
-- Before: 사용자 문의 (평균 2~4시간) + 원인 파악 (1시간) = 평균 4시간
-- After: 즉시 감지 (1분) + 원인 파악 (1시간) = 평균 2시간 (로그가 있어서 원인 파악도 더 빠름)
+- Before: 사용자 문의 폭주 (수시간) + 원인 파악 (1시간) = 평균 4시간
+- After: PM2 모니터링 즉시 감지 (1분) + CloudWatch 로그로 원인 파악 (30분) = 평균 2시간
 
 ## 주의할 점
 
-1. **타임아웃을 너무 짧게 설정하지 않는다.** 작업의 최대 예상 실행 시간보다 20~30% 여유를 둔다. 너무 짧으면 정상 작업도 타임아웃으로 종료된다.
+1. **PM2 프로세스 자체도 모니터링해야 한다.** PM2가 죽으면 모니터링도 멈춘다. PM2를 systemd로 관리해서 서버 재시작 시 자동 실행되게 했다.
 
-2. **CloudWatch 로그 비용을 고려한다.** 모든 크론 작업의 시작/종료 로그를 기록하면 로그 양이 늘어난다. 로그 보관 기간을 7일 정도로 제한했다.
+2. **CloudWatch 로그 비용을 고려한다.** 로그 보관 기간을 7일 정도로 제한했다. 중요한 로그는 DB에 영구 저장한다.
 
-3. **재시도 횟수를 제한한다.** 무한 재시도는 문제를 숨길 수 있다. 3회 정도가 적당하다.
+3. **타임아웃 시간은 여유있게 설정한다.** 작업의 평균 실행 시간보다 2~3배 여유를 둔다. 너무 짧으면 오탐이 발생한다.
 
-4. **알림 피로도를 주의한다.** 사소한 경고까지 메신저로 보내면 알림을 무시하게 된다. 실제 장애(타임아웃, 재시도 실패)만 알림을 보낸다.
+4. **알림 피로도를 주의한다.** 사소한 경고까지 메신저로 보내면 무시하게 된다. 실제 장애(타임아웃, FAILED 상태)만 알림을 보낸다.
 
 ## 배운 점
 
-1. **모니터링이 없으면 문제가 있어도 모른다.** 크론 작업은 조용히 실패한다. 사용자가 발견하기 전에 먼저 알아야 한다.
+1. **모니터링이 없으면 문제가 있어도 모른다.** 크론잡은 조용히 실패한다. 사용자가 발견하기 전에 먼저 알아야 한다.
 
-2. **타임아웃은 필수다.** 무한 대기는 서버를 멈춘다. 모든 외부 호출(DB, API, 파일 I/O)에 타임아웃을 설정한다.
+2. **DB에 작업 내역을 남기는 게 가장 확실하다.** 로그는 유실될 수 있지만 DB INSERT는 트랜잭션으로 보장된다.
 
-3. **재시도 로직은 간단하지만 효과적이다.** 일시적 네트워크 오류는 재시도만으로 해결된다. 3건 중 3건이 재시도로 복구됐다.
+3. **PM2는 프로세스 관리에 편리하다.** 자동 재시작, 로그 관리, 상태 확인이 간단하다.
 
-4. **로그는 구조화해서 남긴다.** `[START]`, `[SUCCESS]`, `[ERROR]`, `[TIMEOUT]` 같은 패턴을 일관되게 사용하면 CloudWatch 메트릭 필터로 쉽게 감지할 수 있다.
+4. **CloudWatch Logs Insights는 강력하다.** SQL 비슷한 쿼리로 로그를 분석할 수 있어서 문제 원인 파악이 빠르다.
 
 ## 마무리
 
-크론 작업은 백그라운드에서 조용히 실행되기 때문에, 문제가 생겨도 알기 어렵다. 헬스체크 자동화는 복잡하지 않다. 시작/종료 로그를 남기고, 타임아웃을 설정하고, CloudWatch로 감시하면 된다. 이 간단한 시스템이 장애 대응 시간을 절반으로 줄였다.
+크론잡은 백그라운드에서 조용히 실행되기 때문에, 문제가 생겨도 알기 어렵다. DB에 작업 내역을 INSERT하고, PM2로 모니터링 스크립트를 돌리고, CloudWatch Logs로 로그를 분석하면 장애를 즉시 감지할 수 있다. 이 시스템으로 장애 대응 시간을 50% 단축했다.
