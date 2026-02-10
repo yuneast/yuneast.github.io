@@ -14,7 +14,7 @@ minimal_mistakes_skin: "default"
 author:
   name: "윤동준"
   bio: "백엔드 개발자"
-  location: "Seoul, Korea"
+  location: "청주, 대한민국"
   links:
     - label: "GitHub"
       icon: "fab fa-fw fa-github"
