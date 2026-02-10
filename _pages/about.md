@@ -7,6 +7,12 @@ toc: true
 toc_sticky: true
 ---
 
+<div id="pdf-download-btn" style="text-align: right; margin-bottom: 1em;">
+  <button onclick="saveAsPdf()" style="padding: 8px 16px; background: #494e52; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+    <i class="fas fa-file-pdf"></i> PDF로 저장
+  </button>
+</div>
+
 ## 윤동준 (Dongjun Yun)
 
 백엔드 개발자. 문제를 발견하고, 분석하고, 해결합니다.
@@ -141,3 +147,26 @@ toc_sticky: true
 
 - **네트워크관리사 2급** (2025.12)
 - **TESAT 3급** (2026.01)
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+function saveAsPdf() {
+  var content = document.querySelector('.page__content');
+  var clone = content.cloneNode(true);
+  var btn = clone.querySelector('#pdf-download-btn');
+  if (btn) btn.remove();
+  var toc = clone.querySelector('.sidebar__right');
+  if (toc) toc.remove();
+
+  var opt = {
+    margin: [10, 15, 10, 15],
+    filename: '윤동준_이력서.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+  };
+
+  html2pdf().set(opt).from(clone).save();
+}
+</script>
