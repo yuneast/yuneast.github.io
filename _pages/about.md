@@ -15,7 +15,7 @@ toc_sticky: true
 
 ## 윤동준 (Dongjun Yun)
 
-백엔드 개발자. 문제를 발견하고, 분석하고, 해결합니다.
+9년차 백엔드 개발자. 문제를 발견하고, 분석하고, 해결합니다.
 
 - Email: ydj0617@gmail.com
 - GitHub: [github.com/yuneast](https://github.com/yuneast)
