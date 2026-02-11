@@ -1,21 +1,9 @@
 main:
-  - title: "글 목록"
+  - title: "Posts"
     url: /
-  - title: "카테고리"
+  - title: "Categories"
     url: /categories/
-  - title: "태그"
+  - title: "Tags"
     url: /tags/
-  - title: "소개"
+  - title: "About"
     url: /about/
-
-sidebar:
-  - title: "메뉴"
-    children:
-      - title: "글 목록"
-        url: /
-      - title: "카테고리"
-        url: /categories/
-      - title: "태그"
-        url: /tags/
-      - title: "소개"
-        url: /about/

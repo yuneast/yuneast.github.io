@@ -56,21 +56,12 @@ defaults:
       toc: true
       toc_sticky: true
       show_date: true
-      sidebar:
-        nav: "sidebar"
   - scope:
       path: "_pages"
       type: pages
     values:
       layout: single
       author_profile: true
-      sidebar:
-        nav: "sidebar"
-  - scope:
-      path: ""
-    values:
-      sidebar:
-        nav: "sidebar"
 
 # Categories
 category_archive:
