@@ -119,6 +119,18 @@ Python, FastAPI, Java, Spring Boot 을 이용한 백엔드 애플리케이션을
 
 ---
 
+## 오픈소스
+
+### [auto-code-fixer](https://github.com/yuneast/auto-code-fixer)
+
+운영 서버에서 에러 발생 시 오류 로그를 수신하고, 해당 레포를 clone하여 Claude Code SDK로 자동 분석·수정 후 커밋·푸시하는 서버.
+
+- 운영 서버 try-except 등에서 에러 감지 → 오류 정보를 auto-code-fixer 서버로 전송 → 레포 clone → Claude Code SDK가 프로젝트 분석·수정 → 브랜치 생성, 커밋, PR 푸시
+- 실무에서 PHP Fatal Error 자동 수정 파이프라인으로 활용, 장애 대응 공수 90% 절감
+- **기술**: Python, Claude Code SDK, GitHub API
+
+---
+
 ## 학력
 
 - **학점은행제** - 컴퓨터공학 전공 (2025.04 ~ , 2026년 학위 취득 예정)
