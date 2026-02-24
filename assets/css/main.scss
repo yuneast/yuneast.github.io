@@ -274,25 +274,61 @@ figure.highlight {
 
 /* TOC */
 .toc {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  padding: 0;
+  overflow: hidden;
+
   .nav__title {
-    font-size: 0.85em;
+    font-size: 0.8em;
     font-weight: 700;
     text-transform: none;
-    letter-spacing: 0;
-    color: #374151;
+    letter-spacing: 0.03em;
+    color: #6b7280;
     background: #f9fafb;
-    border-bottom: 2px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0.8em 1.2em;
+    margin: 0;
   }
 
-  .toc__menu a {
-    font-size: 0.85em;
-    line-height: 1.5;
-    padding: 0.3em 0;
-    color: #6b7280;
-    border-bottom: none;
+  .toc__menu {
+    padding: 0.5em 0;
 
-    &:hover {
-      color: $link-color;
+    ul {
+      padding-left: 0;
+
+      li {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+
+        a {
+          display: block;
+          font-size: 0.82em;
+          line-height: 1.45;
+          padding: 0.4em 1.2em;
+          color: #6b7280;
+          border-bottom: none;
+          border-left: 2px solid transparent;
+          transition: all 0.15s ease;
+          text-decoration: none;
+
+          &:hover {
+            color: $link-color;
+            background: #f0f7ff;
+            border-left-color: $link-color;
+          }
+        }
+
+        /* Nested TOC items (h3, h4) */
+        ul li a {
+          padding-left: 2em;
+          font-size: 0.78em;
+          color: #9ca3af;
+        }
+      }
     }
   }
 }
