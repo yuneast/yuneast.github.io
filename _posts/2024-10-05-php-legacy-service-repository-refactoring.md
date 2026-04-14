@@ -5,7 +5,7 @@ categories: [backend]
 tags: [php, refactoring, design-pattern, legacy, clean-architecture]
 ---
 
-"이 코드 누가 짰어요?" 레거시 코드를 처음 봤을 때 누구나 한 번쯤 하는 말이다. 하지만 중요한 건 누가 짰는지가 아니라, 지금 어떻게 개선할 것인지다. 학원 ERP 서비스의 PHP 레거시 코드를 Service-Repository 패턴으로 리팩토링한 과정을 정리한다.
+"이 코드 누가 짰어요?" 입사 첫 날 코드베이스를 열었을 때 나온 말이다. 컨트롤러 하나에 SQL, 비즈니스 로직, SMS 발송까지 다 들어있었다. 욕이 먼저 나왔고, 그 다음에 어디서부터 건드려야 하나 막막했다.
 
 ## 기존 코드의 문제
 

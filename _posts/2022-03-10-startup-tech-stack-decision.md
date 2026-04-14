@@ -5,7 +5,7 @@ categories: [backend]
 tags: [fastapi, python, tech-stack, startup, architecture]
 ---
 
-공동주택 관리 서비스를 만들 때, 팀 기술 스택을 Python/FastAPI로 결정했다. Node.js, Django, Spring Boot 등 여러 선택지가 있었는데 왜 FastAPI였을까? 기술 스택 선정 과정과 6개월 사용 후 회고를 정리한다.
+공동주택 관리 서비스를 만들 때, 팀 기술 스택을 Python/FastAPI로 결정했다. Node.js, Django, Spring Boot 등 여러 선택지가 있었는데 왜 FastAPI였을까? 6개월 지나고 나서 "잘 골랐다"는 생각이 들었던 순간들이 있다.
 
 ## 상황
 

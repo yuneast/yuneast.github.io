@@ -5,7 +5,7 @@ categories: [devops]
 tags: [github-actions, cicd, docker, deployment, automation]
 ---
 
-"배포할게요, 잠깐만요." 매주 금요일 오후 4시, 배포 담당자가 서버에 SSH 접속해서 `git pull` → `docker-compose restart`를 실행한다. 배포가 끝나면 직접 브라우저를 열어서 주요 기능을 확인한다. 이 과정을 자동화한 이야기를 정리한다.
+"배포할게요, 잠깐만요." 매주 금요일 오후 4시, 배포 담당자가 서버에 SSH 접속해서 `git pull` → `docker-compose restart`를 실행한다. 배포가 끝나면 직접 브라우저를 열어서 주요 기능을 확인한다. 언젠가부터 이 루틴이 너무 지겨워졌다.
 
 ## 기존 배포 프로세스
 
