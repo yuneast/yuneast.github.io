@@ -2,5 +2,7 @@ _site/
 .sass-cache/
 .jekyll-cache/
 .jekyll-metadata
-Gemfile.lock
 vendor/
+
+# Gemfile.lock 은 커밋한다 — 빌드마다 gem 을 재해석하면
+# Liquid 버전이 바뀌어 Pages 빌드가 깨진 적이 있다 (799dccd 참고)
