@@ -35,7 +35,7 @@ toc_sticky: true
 
 ## 기술 스택
 
-**Backend**: Java, Spring Boot, JPA, QueryDSL, Python, FastAPI, PHP, Laravel
+**Backend**: Java, Kotlin, Spring Boot, JPA, QueryDSL, Python, FastAPI, Celery, PHP
 
 **Frontend**: TypeScript, React, Next.js (App Router)
 
@@ -53,7 +53,7 @@ toc_sticky: true
 
 운영 서버에서 에러가 발생하면 오류 로그를 수신해 레포를 clone하고, LLM이 코드를 분석·수정한 뒤 브랜치·커밋·PR까지 자동으로 올리는 서버입니다.
 
-사람이 로그를 열어보기 전에 수정 PR이 먼저 올라와 있는 상태를 목표로 만들었습니다. 실무(공부선배)에 투입해 **PHP Fatal Error 대응 공수를 90% 줄였습니다.**
+사람이 로그를 열어보기 전에 수정 PR이 먼저 올라와 있는 상태를 목표로 만들었습니다. 실무(공부선배)에서는 **AWS CloudWatch Logs의 오류를 탐지 트리거로 붙이고, Celery 비동기 큐로 분석 요청을 처리**하도록 연동했습니다. 같은 오류가 반복될 때 알림과 PR이 쏟아지는 문제는 TTL 기반 중복 제거로 막았습니다. → **PHP Fatal Error 대응 공수 90% 절감**
 
 - [선택 근거] Slack 알림만 붙이는 방식(여전히 사람이 수동 처리) · 애플리케이션 내부에 자동화를 넣는 방식(배포와 결합도 상승) 대비, DevOps 전담 인력이 없는 환경에서는 **독립 서버로 분리한 파이프라인**이 운영 부담이 가장 작다고 판단해 채택
 
@@ -96,18 +96,23 @@ toc_sticky: true
 
 **핵심 성과:**
 
+- 10년 넘은 PHP 레거시(AS-IS) 위에서 기능을 계속 쌓던 상황 → 차세대 시스템을 **PHP → Java → Kotlin으로 단계적으로 이관**하며 전역 Kotlin 리팩토링과 Maven → Gradle 전환을 주도 (차세대 레포 커밋 49건 중 최다 기여) → 레거시와 신규 시스템이 동시에 돌아가는 상태를 유지하며 이관
+  - [선택 근거] 전면 재작성(서비스 중단 + 일정 리스크) 대비, **레거시 PHP가 쓰던 동작을 100% 호환하도록 신규 API를 먼저 만들고, PHP의 DB 직접 조회를 신규 Java API 호출로 하나씩 바꿔 끼우는 방식**을 택해 무중단으로 전환
 - PHP Fatal Error를 매번 사람이 열어보고 고치던 구조 → **LLM 자동 오류 분석 + 수정 PR 생성 파이프라인 구축** → 장애 대응 공수 90% 절감 (위 `auto-code-fixer`)
 - 3개 서비스(ERP, 입시설계, 마켓)의 로그인 정보가 각각 다른 테이블에 흩어져 있었음 → **중앙 인증 서버 분리를 직접 제안**하고 타팀과 협업해 쿠키 기반 통합 인증 구축 → 1시간 점검으로 무중단 전환
   - [선택 근거] 서비스 간 토큰 교환(API 호출 증가) · OAuth 전면 도입(일정 내 구축 불가) 대비, **기존 세션 구조를 최소로만 바꿔** 무중단 전환이 가능한 쿠키 기반 중앙 인증을 채택
-- 장애를 사용자 제보로 알게 되던 상태 → 스케줄러 로그 모니터링 + 타임아웃 시 사내메신저 자동 알림 → 대응 시간 50% 단축
-- 슬로우 쿼리 다수 → 실행 계획 분석 후 쿼리·인덱스 최적화 → **슬로우 쿼리 0건 유지.** 이스케이프 처리 문제로 반복되던 SQL 에러도 Prepared Statement 전환으로 제거
+- 통합 인증 전환 후 **클라이언트가 Refresh 토큰을 동시에 요청하면 401이 발생**했습니다. 원인은 토큰 갱신이 동시에 여러 번 수행되며 서로의 토큰을 무효화하는 경합 → **Redis 싱글플라이트로 갱신을 1회로 단일화하고, 토큰을 원자 연산(GET+DEL)으로 소비해 멱등 처리** → 동시 요청 시 401·중복 발급 차단
+- 장애를 사용자 제보로 알게 되던 상태 → 크론 서버 헬스 체크 + 스케줄러 로그 모니터링, 타임아웃 시 Naver Works 자동 알림 → 대응 시간 50% 단축
+- 슬로우 쿼리 다수 → 실행 계획을 보고 원인별로 다르게 처리: **날짜 필터의 `YEAR()`/`MONTH()` 함수 때문에 인덱스를 못 타던 쿼리를 range 조회로 전환**, 중첩 서브쿼리는 CTE + `EXISTS` 구조로 재작성, 출석 조회는 Derived Table로 튜닝, 누락된 인덱스 추가 → **슬로우 쿼리 0건 유지**
+- 이스케이프 처리 문제로 반복되던 SQL 에러 → Repository 계층에 Prepared Statement 적용 → SQL 에러 제거
 
 **주요 업무:**
 - 요구사항이 불명확하면 PM에게 직접 확인하고 팀 미팅을 주도해 스펙을 확정
 - 컨트롤러에 몰려 있던 로직을 Service-Repository 패턴으로 리팩토링, 배포 전 목 데이터 + 트랜잭션 롤백으로 검증
+- 정상 사용자가 WAF에 차단되는 원인을 즉시 파악할 수 없던 문제 → 차단 이벤트 발생 시 CloudWatch Logs Insights로 차단 룰을 조회해 Naver Works로 사유까지 함께 알리는 운영 도구 구축
 - 데일리 스탠드업에서 DB 설계·개발 방향 공유, PR 자동 어사인 기반 코드 리뷰
 
-**기술**: Java, Spring Boot, JPA, QueryDSL, PHP, MySQL, Redis, Docker, AWS CloudWatch
+**기술**: Java, Kotlin, Spring Boot, JPA, QueryDSL, Python, Celery, PHP, MySQL, Redis, Docker, AWS CloudWatch
 
 ---
 
