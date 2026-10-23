@@ -1,8 +1,8 @@
 ---
 title: "배포 전 안전장치: PHP 테스트로 트랜잭션 롤백 검증"
 date: 2025-01-15
-categories: [Backend, Testing]
-tags: [PHP, PHPUnit, Transaction, Deploy]
+categories: [backend]
+tags: [PHP, PHPUnit, Transaction, Deploy, testing]
 ---
 
 레거시 코드를 리팩토링하면 "잘 동작하는지 어떻게 확인하지?"가 항상 문제였다. 테스트 DB를 쓰면 운영 데이터랑 조건이 달라서 미심쩍고, 운영 DB를 쓰면 데이터가 오염된다. 트랜잭션 롤백으로 이 딜레마를 해결했다.

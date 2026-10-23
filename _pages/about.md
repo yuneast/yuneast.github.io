@@ -178,7 +178,7 @@ toc_sticky: true
 
 ## 기술 블로그
 
-[yuneast.github.io](https://yuneast.github.io) — 실무에서 겪은 장애와 병목의 원인 분석, 그리고 그때 왜 그 방법을 골랐는지를 기록합니다. Redis 분산 락, Celery 비동기 처리, 쿠키 기반 SSO, LLM 자동 오류 수정 파이프라인 등 15편 이상.
+[yuneast.github.io](https://yuneast.github.io) — 실무에서 겪은 장애와 병목의 원인 분석, 그리고 그때 왜 그 방법을 골랐는지를 기록합니다. Redis 분산 락, SSE 실시간 처리, 레거시 PHP→Java 이관, LLM 자동 오류 수정 파이프라인, 4GB 단일 서버 운영 등 20편 이상.
 
 ---
 

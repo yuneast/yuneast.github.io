@@ -1,7 +1,7 @@
 ---
 title: "외부 사이트 DOM 변경에도 안정적인 스크래핑 유지하기"
 date: 2018-08-20
-categories: [Backend]
+categories: [backend]
 tags: [스크래핑, 데이터 파싱, Classic ASP, 안정성]
 ---
 

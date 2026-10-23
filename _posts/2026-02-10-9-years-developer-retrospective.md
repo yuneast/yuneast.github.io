@@ -1,5 +1,5 @@
 ---
-title: "2026년 회고 - AI가 내 코드를 고치기 시작했다"
+title: "AI가 내 코드를 고치기 시작했다 - 1년 회고"
 date: 2026-02-10
 categories: [retrospective]
 tags: [ai, llm, claude-code, developer, career]
