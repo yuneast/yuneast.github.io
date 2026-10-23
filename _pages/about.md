@@ -35,7 +35,7 @@ toc_sticky: true
 
 ## 기술 스택
 
-**Backend**: Java, Kotlin, Spring Boot, JPA, QueryDSL, Python, FastAPI, Celery, PHP
+**Backend**: Java, Spring Boot, JPA, QueryDSL, Python, FastAPI, Celery, PHP
 
 **Frontend**: TypeScript, React, Next.js (App Router)
 
@@ -84,7 +84,7 @@ toc_sticky: true
 - 운영 기반: dev·prod 완전 분리 Docker 스택, prod DB를 앱과 별도 lifecycle로 격리(재배포가 DB 무영향), Caddy 단일 진입점 + 자동 HTTPS, 매일 pg_dump → Cloudflare R2 자동 백업, Flyway 마이그레이션 45개
 - 2개월간 설계 문서 29건을 먼저 쓰고 구현, 커밋 832건, 백엔드 테스트 114개
 
-**기술**: Java, Spring Boot, Gradle(Kotlin DSL), PostgreSQL, Flyway, Next.js, TypeScript, Docker, Caddy
+**기술**: Java, Spring Boot, Gradle, PostgreSQL, Flyway, Next.js, TypeScript, Docker, Caddy
 
 ---
 
@@ -96,8 +96,8 @@ toc_sticky: true
 
 **핵심 성과:**
 
-- 10년 넘은 PHP 레거시(AS-IS) 위에서 기능을 계속 쌓던 상황 → 차세대 시스템을 **PHP → Java → Kotlin으로 단계적으로 이관**하며 전역 Kotlin 리팩토링과 Maven → Gradle 전환을 주도 (차세대 레포 커밋 49건 중 최다 기여) → 레거시와 신규 시스템이 동시에 돌아가는 상태를 유지하며 이관
-  - [선택 근거] 전면 재작성(서비스 중단 + 일정 리스크) 대비, **레거시 PHP가 쓰던 동작을 100% 호환하도록 신규 API를 먼저 만들고, PHP의 DB 직접 조회를 신규 Java API 호출로 하나씩 바꿔 끼우는 방식**을 택해 무중단으로 전환
+- 10년 넘은 PHP 레거시 위에 기능을 계속 쌓던 상황 → **레거시 PHP를 Java/Spring으로 이관**하는 차세대 시스템 구축을 주도 (해당 레포 최다 기여) → 서비스를 멈추지 않고 레거시와 신규 시스템을 병행 운영하며 전환
+  - [선택 근거] 전면 재작성(서비스 중단 + 일정 리스크) 대비, **레거시 PHP의 동작을 100% 호환하는 신규 Java API를 먼저 만들고, PHP가 DB를 직접 조회하던 지점을 신규 API 호출로 하나씩 바꿔 끼우는 방식**을 택해 무중단으로 전환
 - PHP Fatal Error를 매번 사람이 열어보고 고치던 구조 → **LLM 자동 오류 분석 + 수정 PR 생성 파이프라인 구축** → 장애 대응 공수 90% 절감 (위 `auto-code-fixer`)
 - 3개 서비스(ERP, 입시설계, 마켓)의 로그인 정보가 각각 다른 테이블에 흩어져 있었음 → **중앙 인증 서버 분리를 직접 제안**하고 타팀과 협업해 쿠키 기반 통합 인증 구축 → 1시간 점검으로 무중단 전환
   - [선택 근거] 서비스 간 토큰 교환(API 호출 증가) · OAuth 전면 도입(일정 내 구축 불가) 대비, **기존 세션 구조를 최소로만 바꿔** 무중단 전환이 가능한 쿠키 기반 중앙 인증을 채택
@@ -112,7 +112,7 @@ toc_sticky: true
 - 정상 사용자가 WAF에 차단되는 원인을 즉시 파악할 수 없던 문제 → 차단 이벤트 발생 시 CloudWatch Logs Insights로 차단 룰을 조회해 Naver Works로 사유까지 함께 알리는 운영 도구 구축
 - 데일리 스탠드업에서 DB 설계·개발 방향 공유, PR 자동 어사인 기반 코드 리뷰
 
-**기술**: Java, Kotlin, Spring Boot, JPA, QueryDSL, Python, Celery, PHP, MySQL, Redis, Docker, AWS CloudWatch
+**기술**: Java, Spring Boot, JPA, QueryDSL, Python, Celery, PHP, MySQL, Redis, Docker, AWS CloudWatch
 
 ---
 
