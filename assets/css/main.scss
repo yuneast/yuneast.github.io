@@ -237,6 +237,79 @@ figure.highlight {
   }
 }
 
+/* --------------------------------------------------------------------------
+   Rouge 토큰 색 — 밝은 배경용 팔레트
+   테마(minimal-mistakes)는 다크 배경(#263238) 전제의 토큰 색을 깔아둔다.
+   위에서 배경만 #f6f8fa 로 바꾸면 글자색(#eeffff)·주석색(#b2ccd6)이
+   그대로 남아 밝은 배경에 밝은 글자가 된다. 그래서 토큰까지 덮어쓴다.
+   대비는 본문 기준 #24292f on #f6f8fa (약 13:1).
+   -------------------------------------------------------------------------- */
+
+div.highlighter-rouge,
+figure.highlight,
+.highlighter-rouge {
+  color: #24292f;
+
+  pre,
+  code {
+    color: inherit;
+  }
+}
+
+.highlight {
+  color: #24292f;
+
+  .hll { background-color: #fff8c5; }
+
+  /* 주석 */
+  .c, .cm, .cp, .c1, .cs, .cd, .ch, .cpf { color: #6e7781; font-style: italic; }
+
+  /* 키워드 */
+  .k, .kc, .kd, .kn, .kp, .kr { color: #cf222e; }
+  .kt { color: #953800; }
+
+  /* 문자열 */
+  .s, .s1, .s2, .sb, .sc, .sd, .sh, .si, .sx, .ss, .sa, .dl { color: #0a3069; }
+  .se { color: #cf222e; }
+  .sr { color: #116329; }
+
+  /* 숫자·리터럴 */
+  .m, .mf, .mh, .mi, .mo, .mb, .il, .l, .ld { color: #0550ae; }
+
+  /* 이름 */
+  .n, .p, .py, .nl, .nx { color: #24292f; }
+  .nf, .fm { color: #8250df; }
+  .nc, .nn, .ne { color: #953800; }
+  .nb, .bp { color: #0550ae; }
+  .no, .nd, .ni { color: #0550ae; }
+  .na { color: #116329; }
+  .nt { color: #116329; }
+  .nv, .vc, .vg, .vi, .vm { color: #953800; }
+
+  /* 연산자 */
+  .o, .ow { color: #cf222e; }
+
+  /* diff·generic */
+  .gd { color: #82071e; background-color: #ffebe9; }
+  .gi { color: #116329; background-color: #dafbe1; }
+  .ge { font-style: italic; }
+  .gs { font-weight: bold; }
+  .gh { color: #0550ae; font-weight: bold; }
+  .gu { color: #6639ba; font-weight: bold; }
+  .gp, .gt { color: #6e7781; }
+  .gl { text-decoration: underline; }
+  .err, .gr { color: #82071e; background-color: #ffebe9; }
+  .w { color: #d1d5da; }
+
+  /* 줄번호 거터 */
+  table td.gutter,
+  table td.rouge-gutter,
+  .lineno {
+    color: #8c959f;
+    border-right: 1px solid #d8dee4;
+  }
+}
+
 /* ==========================================================================
    E. Navigation & Sidebar
    ========================================================================== */
